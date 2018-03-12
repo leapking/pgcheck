@@ -3,6 +3,7 @@ pgcheck - check data file of PostgreSQL database
 
 Usage
 -----
+```
 pgcheck - check data file of PostgreSQL database(9.6.6).
 Usage: pgcheck  [-D DATADIR] [-c | -p | -b | -l]
                 {database:[schema.]table[,partition|#index] | filepath} [blocknum]
@@ -42,7 +43,7 @@ Usage: pgcheck  [-D DATADIR] [-c | -p | -b | -l]
       x   - xlog files
   -q      - Quiet mode, only print error messages
   -y|n    - Answer YES/NO to all questions
-
+```
 V1.0
 -----
 1. print info of xlog
