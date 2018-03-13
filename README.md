@@ -44,6 +44,15 @@ Usage: pgcheck  [-D DATADIR] [-c | -p | -b | -l]
   -q      - Quiet mode, only print error messages
   -y|n    - Answer YES/NO to all questions
 ```
+1. print info of database, schema, table, partition
+   ![pgcheck -pt](https://leapking.github.io/images/016_pgcheck_01_pt.gif)
+2. print page and tuple of relation
+   ![pgcheck -pp](https://leapking.github.io/images/016_pgcheck_02_ppd.gif)
+3. print index info and keys of index
+   ![pgcheck -pi](https://leapking.github.io/images/016_pgcheck_03_pik.gif)
+4. patch patches on raw page of relation
+   ![pgcheck -bl](https://leapking.github.io/images/016_pgcheck_04_blpud.gif)
+
 V1.0
 -----
 1. print info of xlog
@@ -61,4 +70,5 @@ Put current dir under src/bin and do ```make```
 
 How to report bugs
 ------------------
+有些功能做的有点糙，还有很多没有实现。欢迎学习和研究PG存储层的同学一起加入这个工具的开发。
 Report bugs to **leapking@126.com**
