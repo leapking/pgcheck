@@ -146,6 +146,7 @@ const char      *ProgramName = NULL;
 char            *PGDataDir = NULL;
 char  MyExecPath[MAXPGPATH];
 bool  prgm_debug = false;                            /* are we debugging? */
+bool  ShowAll = false;
 int   quiet_mode = 0;
 int   all_yes = 0;
 int   all_no = 0;
@@ -237,57 +238,69 @@ pg_log(int type, const char *fmt,...)
  *    len[IN]   - the length of data
  */
 static void
-ShowHexData(char *data, int len)
+ShowHexData(const void *data, int32 len)
 {
-    int i, j, k, first_zero_line=0;
+    unsigned char *c = (unsigned char *)data;
+    uint32 i, num_zero_line=0;
 
-	if (len <= 0)
-	{
-        printf("null\n");
-		return;
-	}
-
-    for (i = 0; i < len; i+=16)
+    if (!data || len <= 0)
     {
-        if (*(int32 *)(data+i) == 0 && *(int32 *)(data+i+4) == 0 && *(int32 *)(data+i+8) == 0 && *(int32 *)(data+i+12) == 0)
-        {
-            if (!first_zero_line++)
-                printf("*\n");
-            continue;
-        }else
-            first_zero_line=0;
+        printf("null\n");
+        return;
+    }
 
-		if (len >16)
-            printf("%08x: ", i);
-
-		/* print data in hex type */
-        for (j = i, k = 0; k < 16; k++, j++)
+    while(len > 0)
+    {
+        if (!ShowAll)
         {
-			if (k && k % 8 == 0)
-				printf(" ");
-            if (j < len)
-                printf("%02x ", data[j]);
+            if (*(int32 *)(c) == 0 && *(int32 *)(c+4) == 0 &&
+                *(int32 *)(c+8) == 0 && *(int32 *)(c+12) == 0)
+            {
+                num_zero_line++;
+                if (num_zero_line > 1)
+                {
+                    if (num_zero_line == 2)
+                        printf("*\n");
+                    goto next;
+                }
+            }else
+                num_zero_line = 0;
+        }
+
+        printf("%08x:", c - (unsigned char *)data);
+
+        /* print data in hex type */
+        for (i = 0; i < 16; i++)
+        {
+            if (i % 8 == 0)
+                printf(" ");
+            if (i < len)
+                printf("%02x ", c[i]);
             else
                 printf("   ");
         }
 
-		/* print data in text type */
-		printf("\t|");
-        for (j = i, k = 0; k < 16; k++, j++)
+        /* print data in text type */
+        printf("  |");
+        for (i = 0; i < 16; i++)
         {
-			if (k && k % 8 == 0)
-				printf(" ");
-            if (j < len)
-			{
-                if (!isprint(data[j]) || (data[j] == '\t'))
+            if (i % 8 == 0)
+                printf(" ");
+            if (i < len)
+            {
+                if (!isprint(c[i]) || (c[i] == '\t'))
                     printf(".");
                 else
-                    printf("%c", data[j]);
-			}
+                    printf("%c", c[i]);
+            }
             else
                 printf(" ");
         }
-        printf("|\n");
+        printf(" |\n");
+
+next:
+        c += 16;
+        len -= 16;
     }
 }
 
@@ -1442,9 +1455,9 @@ PGRelationReadFile(char *file, BlockNumber blknum, bool (*func)(char*, PageHeade
     while (read(fd, buffer, BLCKSZ) == BLCKSZ)
     {
         ret &= (*func)(file, (PageHeader) buffer, blkid++);
-		if (blknum != InvalidBlockNumber)
-			break;
-	}
+        if (blknum != InvalidBlockNumber)
+            break;
+    }
 
     close(fd);
     return ret;
@@ -1495,7 +1508,7 @@ PGRelationShowIndexBTree(char *file, BlockNumber blknum, bool pageinfo)
 {
     char            buffer[BLCKSZ];
     int             fd, off;
-	BlockNumber     blkid=(blknum == InvalidBlockNumber) ? 1 : blknum;
+    BlockNumber     blkid=(blknum == InvalidBlockNumber) ? 1 : blknum;
     OffsetNumber    maxoff = InvalidOffsetNumber;
     ItemId          itemid;
     IndexTuple      tuple;
@@ -1516,14 +1529,14 @@ PGRelationShowIndexBTree(char *file, BlockNumber blknum, bool pageinfo)
         pg_log(FATAL, "file: \"%s\" is not btree file\n", file);
 
     printf("Meta Page:\n");
-	printf("-----------------------------------------------------------------\n");
+    printf("-----------------------------------------------------------------\n");
     printf("magic    \tversion\troot\tlevel\tfastroot\tfastlevel\n");
     printf("0x%08x\t%d\t%d\t%d\t%-8d\t%d\n", metad->btm_magic, metad->btm_version,
             metad->btm_root, metad->btm_level, metad->btm_fastroot, metad->btm_fastlevel);
     if (blknum == 0)
-		return;
+        return;
 
-	seekpos = (off_t) BLCKSZ * blkid;
+    seekpos = (off_t) BLCKSZ * blkid;
     if (lseek(fd, seekpos, SEEK_SET) != seekpos)
     {
         close(fd);
@@ -1558,7 +1571,7 @@ PGRelationShowIndexBTree(char *file, BlockNumber blknum, bool pageinfo)
         total_live += live_items;
         total_dead += dead_items;
 
-		printf("\n");
+        printf("\n");
         /* show page info */
         if (pageinfo)
         {
@@ -1585,15 +1598,15 @@ PGRelationShowIndexBTree(char *file, BlockNumber blknum, bool pageinfo)
                     IndexTupleHasNulls(tuple) ? 't' : 'f', IndexTupleHasVarwidths(tuple) ? 't' : 'f');
             ShowHexData((char *)tuple + IndexInfoFindDataOffset(tuple->t_info), IndexTupleSize(tuple) - IndexInfoFindDataOffset(tuple->t_info));
         }
-		if (blknum != InvalidBlockNumber)
-			break;
+        if (blknum != InvalidBlockNumber)
+            break;
     }
-	if (blknum == InvalidBlockNumber)
-	{
+    if (blknum == InvalidBlockNumber)
+    {
         printf("----------------------------------------------------------------------------------------\n");
         printf("total_size\ttotal_free\ttotal_live\ttotal_dead\n");
         printf("%-10llu\t%-10llu\t%-10llu\t%llu\n", total_size, total_free, total_live, total_dead);
-	}
+    }
 
     close(fd);
     return;
@@ -2542,11 +2555,11 @@ PGRelationShowPage(char *filepath, BlockNumber blknum, bool checkmap, int pgOpt)
     {
         char mapath[MAXPGPATH];
 
-		printf("visibility map:");
+        printf("visibility map:");
         snprintf(mapath, sizeof(mapath), "%s_vm", filepath);
         PGRelationReadFile(mapath, blknum, PGPageOpt[pgOpt][1]);
 
-		printf("free space map:");
+        printf("free space map:");
         snprintf(mapath, sizeof(mapath), "%s_fsm", filepath);
         PGRelationReadFile(mapath, blknum, PGPageOpt[pgOpt][2]);
     }
@@ -2639,7 +2652,7 @@ PGBlockPatchCreate(char *file, BlockNumber blknum, int32 pchid, int32 pchoff, in
     int    fd;
     BlockPatch  patch;
 
-	if (blknum == InvalidBlockNumber)
+    if (blknum == InvalidBlockNumber)
         pg_log(FATAL, "block number is must\n");
     patch.oldval = PGBlockPatchWrite(file, blknum, pchoff, 0, pchval, PA_CREATE);
 
@@ -2978,9 +2991,9 @@ dispatch:
     if (bopt)
     {
         /* block patch */
-        if (sflag)
-            PGRelationReadFile(filepath, blknum, PGPagePrintPageRawData);
         if (pflag)
+            PGRelationReadFile(filepath, blknum, PGPagePrintPageRawData);
+        if (cflag)
             PGBlockPatchCreate(filepath, blknum, pchid, pchoff, pchval, pchname);
     }
 }
@@ -3016,10 +3029,10 @@ usage(const char *progname)
     "      k   - index key info.             {database:[schema.]table#index | filepath} [blocknum]\n"
     "      K   - index key and page info.    {database:[schema.]table#index | filepath} [blocknum]\n"
     "  -b      - Block Option\n"
-    "      s   - show a page block           {database:[schema.]table[,partition|#index] | filepath} {blocknum}\n"
-    "      p   - patch a block patch         {database:[schema.]table[,partition|#index] | filepath} {blocknum}\n"
-	"                                        {-o offset -v value -n name}\n"
     "      l   - list all block patchs\n"
+    "      p   - print a page block          {database:[schema.]table[,partition|#index] | filepath} {blocknum}\n"
+    "      c   - create a block patch        {database:[schema.]table[,partition|#index] | filepath} {blocknum}\n"
+    "                                        {-o offset -v value -n name}\n"
     "      u   - unpatch a block patch.      {patchid}\n"
     "      r   - repatch a block patch.      {patchid}\n"
     "      d   - delete  a block patch.      {patchid}\n"
@@ -3244,12 +3257,12 @@ main(int argc, char *argv[])
                         printf("List block patches\n");
                         lflag = 1;
                         break;
-                    /* patch block patch */
-                    case 'p':
+                    /* create block patch */
+                    case 'c':
                     {
                         int32 nset=0;
-                        printf("Patch block patch\n");
-                        pflag = 1;
+                        printf("Create block patch\n");
+                        cflag = 1;
                         if (argc > optind)
                             obj_path = pg_strdup(argv[optind++]);
                         if (argc > optind)
@@ -3260,16 +3273,16 @@ main(int argc, char *argv[])
                             {
                                 switch (*(argv[optind++]+1))
                                 {
+                                    case 'n':
+                                        pchname = pg_strdup(argv[optind++]);
+                                        nset++;
+                                        break;
                                     case 'o':
                                         pchoff = atoi(argv[optind++]);
                                         nset++;
                                         break;
                                     case 'v':
                                         sscanf(argv[optind++], "0x%x", &pchval);
-                                        nset++;
-                                        break;
-                                    case 'n':
-                                        pchname = pg_strdup(argv[optind++]);
                                         nset++;
                                         break;
                                 }
@@ -3282,14 +3295,21 @@ main(int argc, char *argv[])
                         }
                         break;
                     }
-                    /* show block */
-                    case 's':
-                        printf("Show page block for ");
-                        sflag = 1;
-                        if (argc > optind)
-                            obj_path = pg_strdup(argv[optind++]);
-                        if (argc > optind)
-                            obj_blknum = atoi(argv[optind++]);
+                    /* print block */
+                    case 'p':
+                        printf("Print page block for ");
+                        pflag = 1;
+                        while (argc > optind)
+                        {
+                            if (*argv[optind] == '-' && *(argv[optind++]+1) == 'a')
+                                ShowAll = true;
+                            else
+                            {
+                                obj_path = pg_strdup(argv[optind++]);
+                                if (argc > optind)
+                                    obj_blknum = atoi(argv[optind++]);
+                            }
+                        }
                         break;
                     /* unpatch block patch */
                     case 'u':
@@ -3398,10 +3418,10 @@ main(int argc, char *argv[])
             pg_log(FATAL, "unsupport patch action\n");
     }
     else if (lopt && (xflag))
-	{
+    {
         if (xflag)
             PGGlobalGetXLogFiles(ControlFile);
-	}
+    }
     else
     {
         if (!obj_path)
