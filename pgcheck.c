@@ -112,7 +112,7 @@ static bool  PGPagePrintFSMPage(char *file, PageHeader page, BlockNumber blknum)
 static bool  PGPagePrintVMPage(char *file, PageHeader page, BlockNumber blknum);
 
 static char *PGTableSpaceGetSpcInfo(Oid spcid);
-static void  PGTableSpaceGetSpcPath(Oid spcOid, char *spcPath);
+static bool  PGTableSpaceGetSpcPath(Oid spcOid, char *spcPath);
 static void  PGRelationSpaceUsage(char *file);
 static void  PGRelationCheckFile(char *file, BlockNumber blknum, bool checkmap);
 static char *PGRelationGetRelName(Oid dboid, Oid reloid);
@@ -1475,7 +1475,9 @@ PGRelationReadFile(char *file, BlockNumber blknum, bool (*func)(char*, PageHeade
 static void
 PGClassGetObjectPath(Oid spcOid, Oid dboid, Oid tbfnode, char *objPath)
 {
-    PGTableSpaceGetSpcPath(spcOid, objPath);
+    if (!PGTableSpaceGetSpcPath(spcOid, objPath))
+		return;
+
     if (dboid)
         snprintf(objPath+strlen(objPath), MAXPGPATH, "/%d", dboid);
     if (tbfnode)
@@ -1766,11 +1768,14 @@ done:
  * Args:
  *     spcOid[IN]   - oid of tablespace
  *     spcPath[OUT] - path of tablespace
+ * Ret:
+ *     true: if spcPath exist
  */
-static void
+static bool
 PGTableSpaceGetSpcPath(Oid spcOid, char *spcPath)
 {
     char tmpath[MAXPGPATH];
+    struct stat statbuf;
 
     if (!spcOid || spcOid == DEFAULTTABLESPACE_OID)
         snprintf(spcPath, MAXPGPATH, "%s/base", PGDataDir);
@@ -1784,6 +1789,10 @@ PGTableSpaceGetSpcPath(Oid spcOid, char *spcPath)
             tmpath[len] = '\0';
         snprintf(spcPath, MAXPGPATH, "%s/%s", tmpath, TABLESPACE_VERSION_DIRECTORY);
     }
+
+    if (stat(spcPath, &statbuf) < 0)
+        return false;
+    return true;
 }
 
 /*
@@ -1831,11 +1840,11 @@ PGTableSpaceGetSpcInfo(Oid spcid)
             spcForm = (Form_pg_tablespace) GETSTRUCT(&tuple);
             if (spcid == 0)
             {
-                PGTableSpaceGetSpcPath(tblspcOid, tblspcPath);
-                printf(" %-6d | %-15s | %-15s | %-10d | %s\n",
-                       tblspcOid, NameStr(spcForm->spcname),
-                       PGAuthGetAuthInfo(spcForm->spcowner),
-                       GetDirSize(tblspcPath)/1024, tblspcPath);
+                if (PGTableSpaceGetSpcPath(tblspcOid, tblspcPath))
+                    printf(" %-6d | %-15s | %-15s | %-10d | %s\n",
+                           tblspcOid, NameStr(spcForm->spcname),
+                           PGAuthGetAuthInfo(spcForm->spcowner),
+                           GetDirSize(tblspcPath)/1024, tblspcPath);
             }
             else if (spcid == tblspcOid)
             {
