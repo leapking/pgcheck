@@ -181,17 +181,17 @@ char  CheckArgs[100];
 static void
 PGCheckPrintHeader(char *file, char* purpose)
 {
-	time_t now = time(NULL);
+    time_t now = time(NULL);
 
-	printf("*******************************************************************\n");
-	printf(" PostgreSQL Check Database File Utility - Version %-14s\n", PGCHECK_VERSION);
-	printf(" Args: %s\n", CheckArgs);
-	if (purpose)
-		printf(" To:   %s\n", purpose);
-	if (file)
-		printf(" File: %s\n", file);
-	printf(" Time: %-15s\n", ctime(&now));
-	printf("*******************************************************************\n");
+    printf("*******************************************************************\n");
+    printf(" PostgreSQL Check Database File Utility - Version %-14s\n", PGCHECK_VERSION);
+    printf(" Args: %s\n", CheckArgs);
+    if (purpose)
+        printf(" To:   %s\n", purpose);
+    if (file)
+        printf(" File: %s\n", file);
+    printf(" Time: %-15s\n", ctime(&now));
+    printf("*******************************************************************\n");
 }
 
 static void
@@ -300,7 +300,7 @@ ShowHexData(const void *data, int32 len)
         }
 
         /* print data in text type */
-        printf("  |");
+        printf("|");
         for (i = 0; i < 16; i++)
         {
             if (i % 8 == 0)
@@ -1338,13 +1338,17 @@ PGPagePrintPage(char *file, PageHeader page, BlockNumber blknum)
     OffsetNumber maxoff = InvalidOffsetNumber;
     XLogRecPtr   lsn;
     ItemId       itemid;
+    char         flags[10];
 
+	/* 1. check page header */
     PGPageCheckPage(file, page, blknum);
-    printf("\nBlock: %d\n", blknum);
+
+	/* 2. show page header */
+    printf("\nBlockId: %d, Offset: 0x%08x\n", blknum, blknum*ControlFile->blcksz);
     printf("=================================================================================\n");
-    printf("lsn\t\tchksum\tflags\tlower\tupper\tspecial\tsize\tversion\tprune_xid\n");
+    printf("lsn       chksum flags  lower upper special size vers xid\n");
     lsn = PageGetLSN(page);
-    printf("%X/%X\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
+    printf("%X/%X %-6u 0x%-4X %-5u %-5u %-7u %-4u %-5u %-u\n",
            (uint32) (lsn >> 32), (uint32) lsn,
            UInt16GetDatum(page->pd_checksum),
            UInt16GetDatum(page->pd_flags),
@@ -1356,17 +1360,57 @@ PGPagePrintPage(char *file, PageHeader page, BlockNumber blknum)
            TransactionIdGetDatum(page->pd_prune_xid));
     printf("---------------------------------------------------------------------------------\n");
     printf("\n");
+
+	/* 3. show items */
     printf("\titem\toff\tlen\tflags\n");
     maxoff = PageGetMaxOffsetNumber(page);
     for (off = FirstOffsetNumber; off <= maxoff; off++)
     {
         itemid = PageGetItemId(page, off);
-        printf("\t%d\t%d\t%d\t%d\n", off, itemid->lp_off, itemid->lp_len, itemid->lp_flags);
+        switch(itemid->lp_flags)
+        {
+            case LP_UNUSED:
+                strcpy(flags, "UNUSED");
+                break;
+            case LP_NORMAL:
+                strcpy(flags, "NORMAL");
+                break;
+            case LP_REDIRECT:
+                strcpy(flags, "REDIRECT");
+                break;
+            case LP_DEAD:
+                strcpy(flags, "DEAD");
+                break;
+            default:
+                strcpy(flags, "UNKNOWN");
+                break;
+        }
+        printf("\t%d\t%d\t%d\t%d(%s)\n", off, itemid->lp_off, itemid->lp_len, itemid->lp_flags, flags);
     }
     for (off = FirstOffsetNumber; off <= maxoff; off++)
     {
-        printf("item[%d]:\n", off);
         itemid = PageGetItemId(page, off);
+        switch(itemid->lp_flags)
+        {
+            case LP_UNUSED:
+                strcpy(flags, "UNUSED");
+                break;
+            case LP_NORMAL:
+                strcpy(flags, "NORMAL");
+                break;
+            case LP_REDIRECT:
+                strcpy(flags, "REDIRECT");
+                break;
+            case LP_DEAD:
+                strcpy(flags, "DEAD");
+                break;
+            default:
+                strcpy(flags, "UNKNOWN");
+                break;
+        }
+        printf("\nitem[%d] -> offset:%d, len:%d, flag:%d[%s]\n",
+                off, maxoff,
+                itemid->lp_off, itemid->lp_len, itemid->lp_flags, flags);
         ShowHexData((char *) page + itemid->lp_off, itemid->lp_len);
     }
     printf("---------------------------------------------------------------------------------\n");
@@ -1495,7 +1539,7 @@ static void
 PGClassGetObjectPath(Oid spcOid, Oid dboid, Oid tbfnode, char *objPath)
 {
     if (!PGTableSpaceGetSpcPath(spcOid, objPath))
-		return;
+        return;
 
     if (dboid)
         snprintf(objPath+strlen(objPath), MAXPGPATH, "/%d", dboid);
@@ -2992,7 +3036,7 @@ PGCheckDispatch(char *filepath, BlockNumber blknum, int32 pchid, int32 pchoff, i
     filepath = tmpath;
 
 dispatch:
-	PGCheckPrintHeader(filepath, CheckTodo);
+    PGCheckPrintHeader(filepath, CheckTodo);
 
     if (copt)
     {
@@ -3087,9 +3131,9 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-	if (argc == 1)
+    if (argc == 1)
         PGGlobalDataStructInfo();
-	else
+    else
     {
         if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)
         {
@@ -3103,10 +3147,10 @@ main(int argc, char *argv[])
         }
     }
 
-	for (c = 0; c < argc; c++)
-		strcat(CheckArgs, argv[c]);
+    for (c = 0; c < argc; c++)
+        strcat(CheckArgs, argv[c]);
 
-	memset(CheckTodo, 0, sizeof(CheckTodo));
+    memset(CheckTodo, 0, sizeof(CheckTodo));
     while ((c = getopt(argc, argv, "b:c:D:gl:np:qs:y")) != -1)
     {
         switch (c)
