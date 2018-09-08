@@ -174,6 +174,25 @@ int   Tflag = 0;
 int   uflag = 0;
 int   vflag = 0;
 int   xflag = 0;
+char  CheckTodo[100];
+char  CheckArgs[100];
+#define PGCHECK_VERSION "2.0"
+
+static void
+PGCheckPrintHeader(char *file, char* purpose)
+{
+	time_t now = time(NULL);
+
+	printf("*******************************************************************\n");
+	printf(" PostgreSQL Check Database File Utility - Version %-14s\n", PGCHECK_VERSION);
+	printf(" Args: %s\n", CheckArgs);
+	if (purpose)
+		printf(" To:   %s\n", purpose);
+	if (file)
+		printf(" File: %s\n", file);
+	printf(" Time: %-15s\n", ctime(&now));
+	printf("*******************************************************************\n");
+}
 
 static void
 AskToContinue()
@@ -2819,14 +2838,14 @@ PGCheckDispatch(char *filepath, BlockNumber blknum, int32 pchid, int32 pchoff, i
     char *dbname=NULL, *schname=NULL, *relname=NULL, *parname=NULL, *idxname=NULL;
     Oid   dboid=0, schoid=2200, tbfnode=0, reloid=0, paroid=0, idxoid=0, tblspcOid=0;
 
-    if (!filepath)
+    if (filepath == NULL)
         return;
 
-    /* format1: absolute path */
+    /* object format1: absolute path */
     if ((stat(filepath, &statbuf)) == 0)
         goto dispatch;
 
-    /* format2: relative path */
+    /* object format2: relative path */
     snprintf(tmpath, sizeof(tmpath), "%s/%s", PGDataDir, filepath);
     if ((stat(tmpath, &statbuf)) == 0)
     {
@@ -2834,7 +2853,7 @@ PGCheckDispatch(char *filepath, BlockNumber blknum, int32 pchid, int32 pchoff, i
         goto dispatch;
     }
 
-    /* format3: database[:[schema.]table[,partition]] */
+    /* object format3: database[:[schema.]table[,partition]] */
     if (filepath)
         dbname = strtok_r(filepath, ":", &tmpstr);
     if (strchr(tmpstr, '.'))
@@ -2854,16 +2873,15 @@ PGCheckDispatch(char *filepath, BlockNumber blknum, int32 pchid, int32 pchoff, i
     if (strlen(relname) == 0)
         relname = NULL;
 
-    printf("%s:", dbname);
+    sprintf(CheckTodo+strlen(CheckTodo), "on %s:", dbname);
     if (schname)
-        printf("%s.", schname);
+        sprintf(CheckTodo+strlen(CheckTodo), "%s.", schname);
     if (relname)
-        printf("%s", relname);
+        sprintf(CheckTodo+strlen(CheckTodo), "%s", relname);
     if (parname)
-        printf(",%s", parname);
+        sprintf(CheckTodo+strlen(CheckTodo), ",%s", parname);
     if (idxname)
-        printf("#%s", idxname);
-    printf("\n");
+        sprintf(CheckTodo+strlen(CheckTodo), "#%s", idxname);
 
     /* 1. get database info */
     dboid = PGDatabaseGetDBInfo(dbname, false);
@@ -2974,7 +2992,7 @@ PGCheckDispatch(char *filepath, BlockNumber blknum, int32 pchid, int32 pchoff, i
     filepath = tmpath;
 
 dispatch:
-    printf("file: %s\n\n", filepath);
+	PGCheckPrintHeader(filepath, CheckTodo);
 
     if (copt)
     {
@@ -3010,7 +3028,7 @@ dispatch:
 static void
 usage(const char *progname)
 {
-    printf("%s - check data file of PostgreSQL database(%s).\n", progname, PG_VERSION);
+    printf("%s %s - check data file of PostgreSQL database(%s).\n\n", progname,PGCHECK_VERSION, PG_VERSION);
     printf("Usage: %s\t[-D DATADIR] [-c | -p | -b | -l]\n", progname);
     printf("\t\t{database:[schema.]table[,partition|#index] | filepath} [blocknum]\n");
     printf("\n"
@@ -3069,7 +3087,9 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-    if (argc > 1)
+	if (argc == 1)
+        PGGlobalDataStructInfo();
+	else
     {
         if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)
         {
@@ -3082,9 +3102,11 @@ main(int argc, char *argv[])
             exit(0);
         }
     }
-    else
-        PGGlobalDataStructInfo();
 
+	for (c = 0; c < argc; c++)
+		strcat(CheckArgs, argv[c]);
+
+	memset(CheckTodo, 0, sizeof(CheckTodo));
     while ((c = getopt(argc, argv, "b:c:D:gl:np:qs:y")) != -1)
     {
         switch (c)
@@ -3114,23 +3136,23 @@ main(int argc, char *argv[])
                     case 'c':
                         cflag = 1;
                         obj_path = pg_strdup(argv[optind++]);
-                        printf("Check database catalogs for ");
+                        strcpy(CheckTodo, "Check database catalogs");
                         break;
                     case 'C':
                         Cflag = 1;
                         obj_path = pg_strdup(argv[optind++]);
-                        printf("Check database catalogs for ");
+                        strcpy(CheckTodo, "Check database catalogs");
                         break;
                     /* check database user tables */
                     case 'd':
                         dflag = 1;
                         obj_path = pg_strdup(argv[optind++]);
-                        printf("Check table data for ");
+                        strcpy(CheckTodo, "Check table data");
                         break;
                     case 'D':
                         Dflag = 1;
                         obj_path = pg_strdup(argv[optind++]);
-                        printf("Check table data for ");
+                        strcpy(CheckTodo, "Check table data");
                         break;
                     /* check global control file */
                     case 'g':
@@ -3157,7 +3179,7 @@ main(int argc, char *argv[])
                             obj_path = pg_strdup(argv[optind++]);
                         if (argc > optind)
                             obj_blknum = atoi(argv[optind++]);
-                        printf("Print table data for ");
+                        strcpy(CheckTodo, "Print table data");
                         break;
                     case 'D':
                         Dflag = 1;
@@ -3165,7 +3187,7 @@ main(int argc, char *argv[])
                             obj_path = pg_strdup(argv[optind++]);
                         if (argc > optind)
                             obj_blknum = atoi(argv[optind++]);
-                        printf("Print table data for ");
+                        strcpy(CheckTodo, "Print table data");
                         break;
                     /* print global control file */
                     case 'g':
@@ -3176,13 +3198,13 @@ main(int argc, char *argv[])
                         iflag = 1;
                         if (argc > optind)
                             obj_path = pg_strdup(argv[optind++]);
-                        printf("Print index info for ");
+                        strcpy(CheckTodo, "Print index info");
                         break;
                     case 'I':
                         Iflag = 1;
                         if (argc > optind)
                             obj_path = pg_strdup(argv[optind++]);
-                        printf("Print index info for ");
+                        strcpy(CheckTodo, "Print index info");
                         break;
                     /* print index key info */
                     case 'k':
@@ -3191,7 +3213,7 @@ main(int argc, char *argv[])
                             obj_path = pg_strdup(argv[optind++]);
                         if (argc > optind)
                             obj_blknum = atoi(argv[optind++]);
-                        printf("Print index key info for ");
+                        strcpy(CheckTodo, "Print index key info");
                         break;
                     case 'K':
                         Kflag = 1;
@@ -3199,7 +3221,7 @@ main(int argc, char *argv[])
                             obj_path = pg_strdup(argv[optind++]);
                         if (argc > optind)
                             obj_blknum = atoi(argv[optind++]);
-                        printf("Print index key info for ");
+                        strcpy(CheckTodo, "Print index key info");
                         break;
                     /* print pg_filenode.map */
                     case 'm':
@@ -3214,7 +3236,7 @@ main(int argc, char *argv[])
                             obj_path = pg_strdup(argv[optind++]);
                         if (argc > optind)
                             obj_blknum = atoi(argv[optind++]);
-                        printf("Print table page for ");
+                        strcpy(CheckTodo, "Print table page");
                         break;
                     case 'P':
                         Pflag = 1;
@@ -3222,7 +3244,7 @@ main(int argc, char *argv[])
                             obj_path = pg_strdup(argv[optind++]);
                         if (argc > optind)
                             obj_blknum = atoi(argv[optind++]);
-                        printf("Print table page for ");
+                        strcpy(CheckTodo, "Print table page");
                         break;
                     /* print pg_internal.init */
                     case 'r':
@@ -3239,13 +3261,13 @@ main(int argc, char *argv[])
                         tflag = 1;
                         if (argc > optind)
                             obj_path = pg_strdup(argv[optind++]);
-                        printf("Print table info for ");
+                        strcpy(CheckTodo, "Print table info");
                         break;
                     case 'T':
                         Tflag = 1;
                         if (argc > optind)
                             obj_path = pg_strdup(argv[optind++]);
-                        printf("Print table info for ");
+                        strcpy(CheckTodo, "Print table info");
                         break;
                     /* print version info */
                     case 'v':
@@ -3263,14 +3285,14 @@ main(int argc, char *argv[])
                 {
                     /* list block patch */
                     case 'l':
-                        printf("List block patches\n");
+                        strcpy(CheckTodo, "List block patches\n");
                         lflag = 1;
                         break;
                     /* create block patch */
                     case 'c':
                     {
                         int32 nset=0;
-                        printf("Create block patch\n");
+                        strcpy(CheckTodo, "Create block patch");
                         cflag = 1;
                         if (argc > optind)
                             obj_path = pg_strdup(argv[optind++]);
@@ -3306,7 +3328,7 @@ main(int argc, char *argv[])
                     }
                     /* print block */
                     case 'p':
-                        printf("Print page block for ");
+                        strcpy(CheckTodo, "Print page block");
                         pflag = 1;
                         while (argc > optind)
                         {
@@ -3322,21 +3344,21 @@ main(int argc, char *argv[])
                         break;
                     /* unpatch block patch */
                     case 'u':
-                        printf("Unpatch block patch\n");
+                        strcpy(CheckTodo, "Unpatch block patch\n");
                         uflag = 1;
                         if (argc > optind)
                             pchid = atoi(argv[optind++]);
                         break;
                     /* repatch block patch */
                     case 'r':
-                        printf("Repatch block patch\n");
+                        strcpy(CheckTodo, "Repatch block patch\n");
                         rflag = 1;
                         if (argc > optind)
                             pchid = atoi(argv[optind++]);
                         break;
                     /* delete block patch */
                     case 'd':
-                        printf("Delete block patch\n");
+                        strcpy(CheckTodo, "Delete block patch\n");
                         dflag = 1;
                         if (argc > optind)
                             pchid = atoi(argv[optind++]);
@@ -3353,7 +3375,7 @@ main(int argc, char *argv[])
                 {
                     /* list xlog files */
                     case 'x':
-                        printf("List xlog files\n");
+                        strcpy(CheckTodo, "List xlog files\n");
                         xflag = 1;
                         break;
                     default:
@@ -3433,7 +3455,7 @@ main(int argc, char *argv[])
     }
     else
     {
-        if (!obj_path)
+        if (obj_path == NULL)
             pg_log(FATAL, _("Try \"%s --help\" for more information.\n"), ProgramName);
         PGCheckDispatch(obj_path, obj_blknum, pchid, pchoff, pchval, pchname);
     }
