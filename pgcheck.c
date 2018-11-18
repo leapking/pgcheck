@@ -1384,8 +1384,10 @@ PGPagePrintPage(char *file, PageHeader page, BlockNumber blknum)
                 strcpy(flags, "UNKNOWN");
                 break;
         }
-        printf("\t%d\t%d\t%d\t%d(%s)\n", off, itemid->lp_off, itemid->lp_len, itemid->lp_flags, flags);
+        printf("\t%d\t%d\t%d\t%d[%s]\n", off, itemid->lp_off, itemid->lp_len, itemid->lp_flags, flags);
     }
+
+    /* 4. show tuples */
     for (off = FirstOffsetNumber; off <= maxoff; off++)
     {
         itemid = PageGetItemId(page, off);
@@ -3147,7 +3149,11 @@ main(int argc, char *argv[])
     }
 
     for (c = 0; c < argc; c++)
+    {
+        if (c > 0)
+            strcat(CheckArgs, " ");
         strcat(CheckArgs, argv[c]);
+    }
 
     memset(CheckTodo, 0, sizeof(CheckTodo));
     while ((c = getopt(argc, argv, "b:c:D:gl:np:qs:y")) != -1)
