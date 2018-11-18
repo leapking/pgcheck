@@ -184,13 +184,12 @@ PGCheckPrintHeader(char *file, char* purpose)
     time_t now = time(NULL);
 
     printf("*******************************************************************\n");
-    printf(" PostgreSQL Check Database File Utility - Version %-14s\n", PGCHECK_VERSION);
-    printf(" Args: %s\n", CheckArgs);
-    if (purpose)
-        printf(" To:   %s\n", purpose);
+    printf(" PostgreSQL DataFile Check and Print Utility - Version %-14s\n\n", PGCHECK_VERSION);
     if (file)
         printf(" File: %s\n", file);
-    printf(" Time: %-15s\n", ctime(&now));
+    printf(" Args: %s\n\n", CheckArgs);
+    if (purpose)
+        printf(" %s on %-15s", purpose, ctime(&now));
     printf("*******************************************************************\n");
 }
 
@@ -992,7 +991,7 @@ PGGlobalPrintCtrlFile(ControlFileData *ctrlfile)
     printf(_("\tLatest checkpoint's newestCommitTsXid %u\n"), ctrlfile->checkPointCopy.newestCommitTsXid);
     printf(_("\tLatest checkpoint's time              %s\n"), ckpttime_str);
 
-    printf(_("\n\t3. Backupp & Restore Info...\n\n"));
+    printf(_("\n\t3. Backup & Restore Info...\n\n"));
     printf(_("\tFake LSN counter for unlogged rels    %X/%X\n"),
            (uint32) (ctrlfile->unloggedLSN >> 32), (uint32) ctrlfile->unloggedLSN);
     printf(_("\tMinimum recovery ending location      %X/%X\n"),
