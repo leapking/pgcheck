@@ -2466,9 +2466,12 @@ PGRelationGetRelInfo(Oid dboid, Oid schoid, char *relname, bool showInfo, bool s
             tuple.t_len = ItemIdGetLength(itemid);
             if (tuple.t_len <= 0 || !ItemIdIsUsed(itemid))
                 continue;
+
+            /* do not show deleted tuple */
             xmax = HeapTupleHeaderGetRawXmax(tuple.t_data);
-            if (xmax < OldestXmin)
+            if (xmax > OldestXmin)
                 continue;
+
             if (!HeapTupleIsValid(&tuple) ||
                 HeapTupleHeaderXminFrozen(tuple.t_data))
                 continue;
