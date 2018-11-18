@@ -286,7 +286,7 @@ ShowHexData(const void *data, int32 len)
                 num_zero_line = 0;
         }
 
-        printf("%08x:", c - (unsigned char *)data);
+        printf("%08lx:", c - (unsigned char *)data);
 
         /* print data in hex type */
         for (i = 0; i < 16; i++)
@@ -1264,7 +1264,7 @@ PGPagePrintFSMPage(char *file, PageHeader page, BlockNumber blknum)
     printf("=================================================================================\n");
     printf("lsn\t\tchksum\tflags\tlower\tupper\tspecial\tsize\tversion\tprune_xid\n");
     lsn = PageGetLSN(page);
-    printf("%X/%X\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
+    printf("%X/%X\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
            (uint32) (lsn >> 32), (uint32) lsn,
            UInt16GetDatum(page->pd_checksum),
            UInt16GetDatum(page->pd_flags),
@@ -1305,7 +1305,7 @@ PGPagePrintVMPage(char *file, PageHeader page, BlockNumber blknum)
     printf("=================================================================================\n");
     printf("lsn\t\tchksum\tflags\tlower\tupper\tspecial\tsize\tversion\tprune_xid\n");
     lsn = PageGetLSN(page);
-    printf("%X/%X\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n",
+    printf("%X/%X\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
            (uint32) (lsn >> 32), (uint32) lsn,
            UInt16GetDatum(page->pd_checksum),
            UInt16GetDatum(page->pd_flags),
@@ -1348,7 +1348,7 @@ PGPagePrintPage(char *file, PageHeader page, BlockNumber blknum)
     printf("=================================================================================\n");
     printf("lsn       chksum flags  lower upper special size vers xid\n");
     lsn = PageGetLSN(page);
-    printf("%X/%X %-6u 0x%-4X %-5u %-5u %-7u %-4u %-5u %-u\n",
+    printf("%X/%X %-6lu 0x%-4lX %-5lu %-5lu %-7lu %-4lu %-5lu %-lu\n",
            (uint32) (lsn >> 32), (uint32) lsn,
            UInt16GetDatum(page->pd_checksum),
            UInt16GetDatum(page->pd_flags),
@@ -1408,7 +1408,7 @@ PGPagePrintPage(char *file, PageHeader page, BlockNumber blknum)
                 strcpy(flags, "UNKNOWN");
                 break;
         }
-        printf("\nitem[%d] -> offset:%d, len:%d, flag:%d[%s]\n",
+        printf("\nitem[%d/%d] -> offset:%d, len:%d, flag:%d[%s]\n",
                 off, maxoff,
                 itemid->lp_off, itemid->lp_len, itemid->lp_flags, flags);
         ShowHexData((char *) page + itemid->lp_off, itemid->lp_len);
@@ -1644,7 +1644,7 @@ PGRelationShowIndexBTree(char *file, BlockNumber blknum, bool pageinfo)
             printf("blkno\ttype\tlive_items\tdead_items\tavg_item_size\tpage_size\tfree_size\tbtpo_prev\tbtpo_next\tbtpo\tbtpo_flags\n");
             printf("%d\t", blkid++);
             PGRelationGetIndexPgeType(opaque->btpo_flags);
-            printf("\t%-10d\t%-10d\t%f\t%-10d\t%-10d\t%-10d\t%-10d\t%-5d\t%-10d\n", live_items, dead_items, avg_item_size, 
+            printf("\t%-10d\t%-10d\t%f\t%-10lu\t%-10lu\t%-10d\t%-10d\t%-5d\t%-10d\n", live_items, dead_items, avg_item_size, 
                     PageGetPageSize(page), phdr->pd_upper - phdr->pd_lower - sizeof(ItemIdData), 
                     opaque->btpo_prev, opaque->btpo_next, opaque->btpo.level, opaque->btpo_flags);
             printf("--------------------------------------------------------------------------------------------------------------------------------------------------\n");
@@ -1670,7 +1670,7 @@ PGRelationShowIndexBTree(char *file, BlockNumber blknum, bool pageinfo)
     {
         printf("----------------------------------------------------------------------------------------\n");
         printf("total_size\ttotal_free\ttotal_live\ttotal_dead\n");
-        printf("%-10llu\t%-10llu\t%-10llu\t%llu\n", total_size, total_free, total_live, total_dead);
+        printf("%-10lu\t%-10lu\t%-10lu\t%lu\n", total_size, total_free, total_live, total_dead);
     }
 
     close(fd);

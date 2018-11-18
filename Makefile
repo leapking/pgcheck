@@ -14,7 +14,7 @@ PGFILEDESC = "pgcheck - reads the data from pg_control"
 subdir = src/bin/pgcheck
 top_builddir = ../../..
 include $(top_builddir)/src/Makefile.global
-CFLAGS+=-O0
+CFLAGS+=-O0 -g3 -gstabs+
 
 OBJS= pgcheck.o $(WIN32RES)
 
