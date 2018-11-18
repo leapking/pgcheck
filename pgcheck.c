@@ -1340,10 +1340,10 @@ PGPagePrintPage(char *file, PageHeader page, BlockNumber blknum)
     ItemId       itemid;
     char         flags[10];
 
-	/* 1. check page header */
+    /* 1. check page header */
     PGPageCheckPage(file, page, blknum);
 
-	/* 2. show page header */
+    /* 2. show page header */
     printf("\nBlockId: %d, Offset: 0x%08x\n", blknum, blknum*ControlFile->blcksz);
     printf("=================================================================================\n");
     printf("lsn       chksum flags  lower upper special size vers xid\n");
@@ -1361,7 +1361,7 @@ PGPagePrintPage(char *file, PageHeader page, BlockNumber blknum)
     printf("---------------------------------------------------------------------------------\n");
     printf("\n");
 
-	/* 3. show items */
+    /* 3. show items */
     printf("\titem\toff\tlen\tflags\n");
     maxoff = PageGetMaxOffsetNumber(page);
     for (off = FirstOffsetNumber; off <= maxoff; off++)
@@ -3179,23 +3179,27 @@ main(int argc, char *argv[])
                     /* check database catalog tables */
                     case 'c':
                         cflag = 1;
-                        obj_path = pg_strdup(argv[optind++]);
+                        if (argc > optind)
+                            obj_path = pg_strdup(argv[optind++]);
                         strcpy(CheckTodo, "Check database catalogs");
                         break;
                     case 'C':
                         Cflag = 1;
-                        obj_path = pg_strdup(argv[optind++]);
+                        if (argc > optind)
+                            obj_path = pg_strdup(argv[optind++]);
                         strcpy(CheckTodo, "Check database catalogs");
                         break;
                     /* check database user tables */
                     case 'd':
                         dflag = 1;
-                        obj_path = pg_strdup(argv[optind++]);
+                        if (argc > optind)
+                            obj_path = pg_strdup(argv[optind++]);
                         strcpy(CheckTodo, "Check table data");
                         break;
                     case 'D':
                         Dflag = 1;
-                        obj_path = pg_strdup(argv[optind++]);
+                        if (argc > optind)
+                            obj_path = pg_strdup(argv[optind++]);
                         strcpy(CheckTodo, "Check table data");
                         break;
                     /* check global control file */
